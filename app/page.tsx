@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect, type MutableRefObject } from "react";
 import { toPng } from "html-to-image";
 import TweetPreview, { type TweetData } from "./components/TweetPreview";
 import {
@@ -10,34 +10,105 @@ import {
   GithubIcon,
   HeartIcon,
   DownloadIcon,
+  MobileIcon,
+  TabletIcon,
+  DesktopIcon,
 } from "./components/XIcons";
 
-const MAX_CHARS = 280;
+type DeviceView = "mobile" | "tablet" | "desktop";
 
-function getCharCountColor(count: number): string {
-  if (count > MAX_CHARS) return "text-red-500";
-  if (count > MAX_CHARS - 20) return "text-yellow-500";
+const FREE_CHARS = 280;
+const PREMIUM_CHARS = 25000;
+const STORAGE_KEY = "x-post-preview-draft";
+const DARK_MODE_KEY = "x-post-preview-dark";
+
+interface SavedDraft {
+  displayName: string;
+  handle: string;
+  avatarUrl: string | null;
+  verified: boolean;
+  text: string;
+  replies: number;
+  retweets: number;
+  likes: number;
+  views: number;
+  bookmarks: number;
+}
+
+const DEFAULT_TWEET: TweetData = {
+  displayName: "Your Name",
+  handle: "yourhandle",
+  avatarUrl: null,
+  verified: false,
+  text: "",
+  mediaUrl: null,
+  mediaType: "image",
+  timestamp: new Date(),
+  replies: 0,
+  retweets: 0,
+  likes: 0,
+  views: 0,
+  bookmarks: 0,
+};
+
+function saveDraft(tweet: TweetData) {
+  try {
+    const draft: SavedDraft = {
+      displayName: tweet.displayName,
+      handle: tweet.handle,
+      avatarUrl: tweet.avatarUrl,
+      verified: tweet.verified,
+      text: tweet.text,
+      replies: tweet.replies,
+      retweets: tweet.retweets,
+      likes: tweet.likes,
+      views: tweet.views,
+      bookmarks: tweet.bookmarks,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+  } catch {}
+}
+
+function getCharCountColor(count: number, limit: number): string {
+  if (count > limit) return "text-red-500";
+  if (count > limit - 20) return "text-yellow-500";
   return "";
 }
 
 export default function Home() {
   const [darkMode, setDarkMode] = useState(true);
   const [downloading, setDownloading] = useState(false);
-  const [tweet, setTweet] = useState<TweetData>({
-    displayName: "Your Name",
-    handle: "yourhandle",
-    avatarUrl: null,
-    verified: false,
-    text: "",
-    mediaUrl: null,
-    mediaType: "image",
-    timestamp: new Date(),
-    replies: 0,
-    retweets: 0,
-    likes: 0,
-    views: 0,
-    bookmarks: 0,
-  });
+  const [tweet, setTweet] = useState<TweetData>(DEFAULT_TWEET);
+  const restoredRef: MutableRefObject<boolean> = useRef(false);
+
+  // Restore from localStorage once on mount (after hydration)
+  useEffect(() => {
+    try {
+      const val = localStorage.getItem(DARK_MODE_KEY);
+      if (val !== null) setDarkMode(val === "true");
+    } catch {}
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as SavedDraft;
+        setTweet((prev) => ({ ...prev, ...saved, timestamp: new Date() }));
+      }
+    } catch {}
+    restoredRef.current = true;
+  }, []);
+
+  // Auto-save draft on every change (debounced, only after restore)
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    const timer = setTimeout(() => saveDraft(tweet), 400);
+    return () => clearTimeout(timer);
+  }, [tweet]);
+
+  // Persist dark mode preference (only after restore)
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    try { localStorage.setItem(DARK_MODE_KEY, String(darkMode)); } catch {}
+  }, [darkMode]);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -105,6 +176,9 @@ export default function Home() {
   const labelColor = darkMode ? "text-[#e7e9ea]" : "text-[#0f1419]";
   const secondaryLabel = darkMode ? "text-[#8b98a5]" : "text-[#536471]";
 
+  const [premium, setPremium] = useState(false);
+  const [deviceView, setDeviceView] = useState<DeviceView>("desktop");
+  const charLimit = premium ? PREMIUM_CHARS : FREE_CHARS;
   const charCount = tweet.text.length;
 
   return (
@@ -122,20 +196,42 @@ export default function Home() {
               Post Preview
             </h1>
           </div>
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${
-              darkMode ? "bg-x-blue" : "bg-[#cfd9de]"
-            }`}
-            aria-label="Toggle dark mode"
-            type="button"
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow-sm ${
-                darkMode ? "translate-x-6" : "translate-x-0"
+          <div className="flex items-center gap-2 sm:gap-4">
+            <a
+              href="https://github.com/StarKnightt/Twitter-Preview"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-1.5 text-sm ${secondaryLabel} hover:text-x-blue transition-colors`}
+              aria-label="GitHub"
+            >
+              <GithubIcon className="w-5 h-5" />
+              <span className="hidden sm:inline">GitHub</span>
+            </a>
+            <a
+              href="https://x.com/Star_Knight12"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-1.5 text-sm ${secondaryLabel} hover:text-x-blue transition-colors`}
+              aria-label="Follow on X"
+            >
+              <XLogo className="w-4 h-4" />
+              <span className="hidden sm:inline">Follow</span>
+            </a>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${
+                darkMode ? "bg-x-blue" : "bg-[#cfd9de]"
               }`}
-            />
-          </button>
+              aria-label="Toggle dark mode"
+              type="button"
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow-sm ${
+                  darkMode ? "translate-x-6" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -215,25 +311,43 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Verified toggle */}
-            <label className="flex items-center gap-2 mb-4 sm:mb-5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={tweet.verified}
-                onChange={(e) =>
-                  setTweet((prev) => ({ ...prev, verified: e.target.checked }))
-                }
-                className="sr-only peer"
-              />
-              <div className="relative w-9 h-5 rounded-full bg-[#cfd9de] peer-checked:bg-x-blue transition-colors">
-                <div
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${
-                    tweet.verified ? "translate-x-4" : ""
-                  }`}
+            {/* Toggles */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4 sm:mb-5">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={tweet.verified}
+                  onChange={(e) =>
+                    setTweet((prev) => ({ ...prev, verified: e.target.checked }))
+                  }
+                  className="sr-only peer"
                 />
-              </div>
-              <span className={`text-sm ${labelColor}`}>Verified badge</span>
-            </label>
+                <div className="relative w-9 h-5 rounded-full bg-[#cfd9de] peer-checked:bg-x-blue transition-colors">
+                  <div
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${
+                      tweet.verified ? "translate-x-4" : ""
+                    }`}
+                  />
+                </div>
+                <span className={`text-sm ${labelColor}`}>Verified badge</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={premium}
+                  onChange={(e) => setPremium(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="relative w-9 h-5 rounded-full bg-[#cfd9de] peer-checked:bg-x-blue transition-colors">
+                  <div
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${
+                      premium ? "translate-x-4" : ""
+                    }`}
+                  />
+                </div>
+                <span className={`text-sm ${labelColor}`}>Premium (25K chars)</span>
+              </label>
+            </div>
 
             {/* Tweet text — BIGGER textarea */}
             <div className="mb-4">
@@ -293,11 +407,11 @@ export default function Home() {
                   )}
                 </div>
                 <span
-                  className={`text-sm font-medium tabular-nums ${getCharCountColor(charCount)} ${
-                    !getCharCountColor(charCount) ? secondaryLabel : ""
+                  className={`text-sm font-medium tabular-nums ${getCharCountColor(charCount, charLimit)} ${
+                    !getCharCountColor(charCount, charLimit) ? secondaryLabel : ""
                   }`}
                 >
-                  {charCount}/{MAX_CHARS}
+                  {charCount.toLocaleString()}/{charLimit.toLocaleString()}
                 </span>
               </div>
             </div>
@@ -368,33 +482,83 @@ export default function Home() {
 
           {/* ───── Preview Panel ───── */}
           <div className="lg:sticky lg:top-[72px] w-full">
-            <div className="flex items-center justify-between mb-4">
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
               <h2 className={`text-base font-bold ${labelColor}`}>Live Preview</h2>
-              <button
-                onClick={handleDownload}
-                disabled={downloading}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer ${
-                  downloading
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:opacity-90 active:scale-95"
-                } bg-x-blue text-white`}
-                type="button"
-              >
-                <DownloadIcon className="w-4 h-4" />
-                {downloading ? "Exporting..." : "Download as Image"}
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Device switcher */}
+                <div
+                  className={`flex items-center rounded-lg border ${
+                    darkMode ? "border-[#38444d] bg-[#1e2732]" : "border-[#e1e4e8] bg-white"
+                  } p-0.5`}
+                >
+                  {(
+                    [
+                      { key: "mobile" as DeviceView, icon: MobileIcon, label: "Mobile" },
+                      { key: "tablet" as DeviceView, icon: TabletIcon, label: "Tablet" },
+                      { key: "desktop" as DeviceView, icon: DesktopIcon, label: "Desktop" },
+                    ] as const
+                  ).map(({ key, icon: Icon, label }) => {
+                    const isActive = deviceView === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setDeviceView(key)}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                          isActive
+                            ? "bg-x-blue text-white shadow-sm"
+                            : darkMode
+                              ? "text-[#8b98a5] hover:bg-[#273340]"
+                              : "text-[#536471] hover:bg-[#f0f2f5]"
+                        }`}
+                        type="button"
+                        title={label}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer ${
+                    downloading
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:opacity-90 active:scale-95"
+                  } bg-x-blue text-white`}
+                  type="button"
+                >
+                  <DownloadIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{downloading ? "Exporting..." : "Download"}</span>
+                </button>
+              </div>
             </div>
-            <div
-              ref={previewRef}
-              className={`rounded-2xl p-4 sm:p-6 ${
-                darkMode ? "bg-black" : "bg-[#f7f9f9]"
-              } border ${darkMode ? "border-[#38444d]" : "border-[#e1e4e8]"} transition-colors duration-200`}
-            >
-              <TweetPreview tweet={tweet} darkMode={darkMode} />
+
+            {/* Preview frame */}
+            <div className="flex justify-center">
+              <div
+                ref={previewRef}
+                className={`rounded-2xl p-4 sm:p-6 transition-all duration-300 ${
+                  darkMode ? "bg-black" : "bg-[#f7f9f9]"
+                } border ${darkMode ? "border-[#38444d]" : "border-[#e1e4e8]"}`}
+                style={{
+                  width: deviceView === "mobile" ? "375px" : deviceView === "tablet" ? "540px" : "100%",
+                  maxWidth: "100%",
+                }}
+              >
+                <TweetPreview tweet={tweet} darkMode={darkMode} />
+              </div>
             </div>
 
             <p className={`mt-4 text-xs sm:text-sm ${secondaryLabel} text-center`}>
-              This is an approximate preview. Actual rendering on X may vary slightly.
+              {deviceView === "mobile"
+                ? "Mobile view (375px)"
+                : deviceView === "tablet"
+                  ? "Tablet view (540px)"
+                  : "Desktop view (full width)"}
+              {" · "}Actual rendering on X may vary slightly.
             </p>
           </div>
         </div>
@@ -406,58 +570,26 @@ export default function Home() {
           darkMode ? "border-[#38444d]" : "border-[#e1e4e8]"
         } transition-colors duration-200`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6">
-            <div className="flex items-center gap-2.5">
-              <XLogo className={`w-5 h-5 ${darkMode ? "text-[#e7e9ea]" : "text-[#0f1419]"}`} />
-              <span className={`text-sm font-semibold ${darkMode ? "text-[#e7e9ea]" : "text-[#0f1419]"}`}>
-                Post Preview
-              </span>
-              <span
-                className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                  darkMode ? "bg-x-blue/15 text-x-blue" : "bg-x-blue/10 text-x-blue"
-                }`}
-              >
-                Open Source
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4 sm:gap-6">
-              <a
-                href="https://github.com/StarKnightt/Twitter-Preview"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`flex items-center gap-1.5 text-sm ${secondaryLabel} hover:text-x-blue transition-colors`}
-              >
-                <GithubIcon className="w-4 h-4" />
-                GitHub
-              </a>
-              <a
-                href="https://x.com/Star_Knight12"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`flex items-center gap-1.5 text-sm ${secondaryLabel} hover:text-x-blue transition-colors`}
-              >
-                <XLogo className="w-3.5 h-3.5" />
-                Follow us
-              </a>
-            </div>
-
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-center">
             <p className={`flex items-center gap-1 text-sm ${secondaryLabel}`}>
               Made with
               <HeartIcon className="w-3.5 h-3.5 text-x-pink" />
               <span className="sr-only">love</span>
-              for the community
+              by
+              <a
+                href="https://x.com/Star_Knight12"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-x-blue hover:underline"
+              >
+                @Star_Knight12
+              </a>
             </p>
-          </div>
-
-          <div
-            className={`mt-5 pt-4 border-t text-center text-xs ${secondaryLabel} ${
-              darkMode ? "border-[#38444d]" : "border-[#e1e4e8]"
-            }`}
-          >
-            Not affiliated with X Corp. This tool is for preview purposes only. No data is stored or
-            sent to any server.
+            <span className={`hidden sm:inline ${secondaryLabel}`}>·</span>
+            <p className={`text-xs ${secondaryLabel}`}>
+              Not affiliated with X Corp. No data is stored or sent to any server.
+            </p>
           </div>
         </div>
       </footer>

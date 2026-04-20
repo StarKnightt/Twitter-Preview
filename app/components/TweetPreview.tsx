@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   ReplyIcon,
   RetweetIcon,
@@ -89,6 +90,9 @@ export default function TweetPreview({
   tweet: TweetData;
   darkMode: boolean;
 }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const bg = darkMode ? "bg-black" : "bg-white";
   const textColor = darkMode ? "text-[#e7e9ea]" : "text-[#0f1419]";
   const secondaryText = darkMode ? "text-[#71767b]" : "text-[#536471]";
@@ -141,7 +145,7 @@ export default function TweetPreview({
               <span
                 className={`text-[15px] ${secondaryText} shrink-0 hover:underline cursor-pointer`}
               >
-                {formatTimestamp(tweet.timestamp)}
+                {mounted ? formatTimestamp(tweet.timestamp) : "now"}
               </span>
               <div className="ml-auto shrink-0">
                 <MoreIcon className={`w-[18.75px] h-[18.75px] ${secondaryText}`} />
