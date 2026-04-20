@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Twitter-Preview
+
+Preview your X/Twitter posts before publishing. See exactly how your tweet will look in the feed — with full customization for profile, media, and engagement metrics.
+
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
+## Features
+
+- **Real-time preview** — see your post update as you type
+- **Profile customization** — avatar, display name, handle, verified badge
+- **Media support** — upload images and videos
+- **Download as image** — export your preview as a PNG
+- **Engagement metrics** — set replies, reposts, likes, views, bookmarks
+- **Dark / Light mode** — toggle between themes
+- **Mobile optimized** — responsive design for all devices including iOS
+- **Entity highlighting** — @mentions, #hashtags, and URLs styled like real X
+
+## Tech Stack
+
+- [Next.js 16](https://nextjs.org/) (App Router)
+- [React 19](https://react.dev/)
+- [Tailwind CSS 4](https://tailwindcss.com/)
+- [html-to-image](https://github.com/bubkoo/html-to-image) for PNG export
+- TypeScript
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Clone
+git clone https://github.com/StarKnightt/Twitter-Preview.git
+cd Twitter-Preview
+
+# Install
+pnpm install
+
+# Dev
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Contributing
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Contributions are welcome! Feel free to open issues and pull requests.
 
-## Learn More
+## License
 
-To learn more about Next.js, take a look at the following resources:
+MIT
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Author
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Built by [@Star_Knight12](https://x.com/Star_Knight12)
