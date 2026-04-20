@@ -104,7 +104,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [tweet]);
 
-  // Persist dark mode preference (only after restore)
+  
   useEffect(() => {
     if (!restoredRef.current) return;
     try { localStorage.setItem(DARK_MODE_KEY, String(darkMode)); } catch {}
@@ -540,15 +540,26 @@ export default function Home() {
             <div className="flex justify-center">
               <div
                 ref={previewRef}
-                className={`rounded-2xl p-4 sm:p-6 transition-all duration-300 ${
-                  darkMode ? "bg-black" : "bg-[#f7f9f9]"
-                } border ${darkMode ? "border-[#38444d]" : "border-[#e1e4e8]"}`}
+                className={`transition-all duration-300 ${
+                  deviceView === "mobile"
+                    ? `rounded-4xl overflow-hidden border-[3px] ${
+                        darkMode ? "border-[#38444d] bg-black" : "border-[#d1d5db] bg-white"
+                      } shadow-lg`
+                    : `rounded-2xl p-4 sm:p-6 border ${
+                        darkMode ? "bg-black border-[#38444d]" : "bg-[#f7f9f9] border-[#e1e4e8]"
+                      }`
+                }`}
                 style={{
                   width: deviceView === "mobile" ? "375px" : deviceView === "tablet" ? "540px" : "100%",
                   maxWidth: "100%",
                 }}
               >
-                <TweetPreview tweet={tweet} darkMode={darkMode} />
+                <TweetPreview tweet={tweet} darkMode={darkMode} device={deviceView} />
+                {deviceView === "mobile" && (
+                  <div className={`h-6 flex items-center justify-center ${darkMode ? "bg-black" : "bg-white"}`}>
+                    <div className={`w-28 h-1 rounded-full ${darkMode ? "bg-[#555]" : "bg-[#d1d5db]"}`} />
+                  </div>
+                )}
               </div>
             </div>
 
