@@ -148,15 +148,48 @@ export default function Home() {
     });
   }, []);
 
+  const [premium, setPremium] = useState(false);
+  const [deviceView, setDeviceView] = useState<DeviceView>("desktop");
+  const charLimit = premium ? PREMIUM_CHARS : FREE_CHARS;
+  const charCount = tweet.text.length;
+
   const handleDownload = useCallback(async () => {
     if (!previewRef.current) return;
     setDownloading(true);
     try {
-      const dataUrl = await toPng(previewRef.current, {
-        pixelRatio: 2,
+      const el = previewRef.current;
+      const isMobileView = deviceView === "mobile";
+
+      const saved = {
+        border: el.style.border,
+        borderRadius: el.style.borderRadius,
+        padding: el.style.padding,
+        backgroundColor: el.style.backgroundColor,
+        boxShadow: el.style.boxShadow,
+      };
+
+      if (isMobileView) {
+        el.style.padding = "16px 12px";
+        el.style.borderRadius = "20px";
+        el.style.backgroundColor = darkMode ? "#000000" : "#ffffff";
+        el.style.border = darkMode ? "1px solid #2f3336" : "1px solid #e1e4e8";
+        el.style.boxShadow = "0 4px 24px rgba(0,0,0,0.12)";
+      }
+
+      const dataUrl = await toPng(el, {
+        pixelRatio: 3,
         cacheBust: true,
-        backgroundColor: darkMode ? "#000000" : "#f7f9f9",
+        backgroundColor: darkMode ? "#15202b" : "#f0f2f5",
       });
+
+      if (isMobileView) {
+        el.style.border = saved.border;
+        el.style.borderRadius = saved.borderRadius;
+        el.style.padding = saved.padding;
+        el.style.backgroundColor = saved.backgroundColor;
+        el.style.boxShadow = saved.boxShadow;
+      }
+
       const link = document.createElement("a");
       link.download = `x-post-preview-${Date.now()}.png`;
       link.href = dataUrl;
@@ -166,7 +199,7 @@ export default function Home() {
     } finally {
       setDownloading(false);
     }
-  }, [darkMode]);
+  }, [darkMode, deviceView]);
 
   const pageBg = darkMode ? "bg-[#15202b]" : "bg-[#f0f2f5]";
   const panelBg = darkMode ? "bg-[#1e2732]" : "bg-white";
@@ -175,11 +208,6 @@ export default function Home() {
     : "bg-white border-[#cfd9de] text-[#0f1419] placeholder-[#536471]";
   const labelColor = darkMode ? "text-[#e7e9ea]" : "text-[#0f1419]";
   const secondaryLabel = darkMode ? "text-[#8b98a5]" : "text-[#536471]";
-
-  const [premium, setPremium] = useState(false);
-  const [deviceView, setDeviceView] = useState<DeviceView>("desktop");
-  const charLimit = premium ? PREMIUM_CHARS : FREE_CHARS;
-  const charCount = tweet.text.length;
 
   return (
     <div className={`min-h-screen ${pageBg} transition-colors duration-200`}>
@@ -539,22 +567,33 @@ export default function Home() {
             {/* Preview frame */}
             <div className="flex justify-center">
               <div
-                ref={previewRef}
                 className={`transition-all duration-300 ${
                   deviceView === "mobile"
                     ? `rounded-4xl overflow-hidden border-[3px] ${
                         darkMode ? "border-[#38444d] bg-black" : "border-[#d1d5db] bg-white"
                       } shadow-lg`
-                    : `rounded-2xl p-4 sm:p-6 border ${
-                        darkMode ? "bg-black border-[#38444d]" : "bg-[#f7f9f9] border-[#e1e4e8]"
-                      }`
+                    : ""
                 }`}
                 style={{
                   width: deviceView === "mobile" ? "375px" : deviceView === "tablet" ? "540px" : "100%",
                   maxWidth: "100%",
                 }}
               >
-                <TweetPreview tweet={tweet} darkMode={darkMode} device={deviceView} />
+                <div
+                  ref={previewRef}
+                  className={`${
+                    deviceView === "mobile"
+                      ? ""
+                      : `rounded-2xl p-4 sm:p-6 border ${
+                          darkMode ? "bg-black border-[#38444d]" : "bg-[#f7f9f9] border-[#e1e4e8]"
+                        }`
+                  }`}
+                  style={{
+                    backgroundColor: deviceView === "mobile" ? (darkMode ? "#000" : "#fff") : undefined,
+                  }}
+                >
+                  <TweetPreview tweet={tweet} darkMode={darkMode} device={deviceView} />
+                </div>
                 {deviceView === "mobile" && (
                   <div className={`h-6 flex items-center justify-center ${darkMode ? "bg-black" : "bg-white"}`}>
                     <div className={`w-28 h-1 rounded-full ${darkMode ? "bg-[#555]" : "bg-[#d1d5db]"}`} />

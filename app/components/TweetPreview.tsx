@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import {
   ReplyIcon,
   RetweetIcon,
@@ -182,22 +182,11 @@ export default function TweetPreview({
 
             {/* Media */}
             {tweet.mediaUrl && (
-              <div className={`mt-3 rounded-2xl overflow-hidden border ${borderColor}`}>
-                {tweet.mediaType === "video" ? (
-                  <video
-                    src={tweet.mediaUrl}
-                    controls
-                    className="w-full max-h-[510px] object-contain bg-black"
-                    playsInline
-                  />
-                ) : (
-                  <img
-                    src={tweet.mediaUrl}
-                    alt=""
-                    className="w-full max-h-[510px] object-cover"
-                  />
-                )}
-              </div>
+              <MediaPreview
+                mediaUrl={tweet.mediaUrl}
+                mediaType={tweet.mediaType}
+                borderColor={borderColor}
+              />
             )}
 
             {/* Action bar */}
@@ -212,6 +201,39 @@ export default function TweetPreview({
     </div>
   );
 }
+
+const MediaPreview = memo(function MediaPreview({
+  mediaUrl,
+  mediaType,
+  borderColor,
+}: {
+  mediaUrl: string;
+  mediaType: MediaType;
+  borderColor: string;
+}) {
+  return (
+    <div
+      className={`mt-3 rounded-2xl border ${borderColor} relative ${
+        mediaType === "video" ? "" : "overflow-hidden"
+      }`}
+    >
+      {mediaType === "video" ? (
+        <video
+          key={mediaUrl}
+          src={mediaUrl}
+          controls
+          controlsList="nodownload"
+          preload="metadata"
+          playsInline
+          className="w-full max-h-[510px] object-contain bg-black rounded-2xl"
+          style={{ minHeight: "200px", display: "block" }}
+        />
+      ) : (
+        <img src={mediaUrl} alt="" className="w-full max-h-[510px] object-cover" />
+      )}
+    </div>
+  );
+});
 
 function MobileActionBar({
   tweet,
