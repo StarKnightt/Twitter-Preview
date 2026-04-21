@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect, type MutableRefObject } from "react";
 import { toPng } from "html-to-image";
-import TweetPreview, { type TweetData } from "./components/TweetPreview";
+import TweetPreview, { type TweetData, type DeviceView } from "./components/TweetPreview";
+import ThemeSelector from "./components/ThemeSelector";
 import {
   XLogo,
   ImageIcon,
@@ -13,6 +14,7 @@ import {
   MobileIcon,
   TabletIcon,
   DesktopIcon,
+  PaletteIcon,
 } from "./components/XIcons";
 
 type DeviceView = "mobile" | "tablet" | "desktop";
@@ -79,6 +81,8 @@ export default function Home() {
   const [darkMode, setDarkMode] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [tweet, setTweet] = useState<TweetData>(DEFAULT_TWEET);
+  const [background, setBackground] = useState<string | null>(null);
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
   const restoredRef: MutableRefObject<boolean> = useRef(false);
 
   // Restore from localStorage once on mount (after hydration)
@@ -171,7 +175,9 @@ export default function Home() {
       if (isMobileView) {
         el.style.padding = "16px 12px";
         el.style.borderRadius = "20px";
-        el.style.backgroundColor = darkMode ? "#000000" : "#ffffff";
+        if (!background) {
+            el.style.backgroundColor = darkMode ? "#000000" : "#ffffff";
+        }
         el.style.border = darkMode ? "1px solid #2f3336" : "1px solid #e1e4e8";
         el.style.boxShadow = "0 4px 24px rgba(0,0,0,0.12)";
       }
@@ -179,7 +185,7 @@ export default function Home() {
       const dataUrl = await toPng(el, {
         pixelRatio: 3,
         cacheBust: true,
-        backgroundColor: darkMode ? "#15202b" : "#f0f2f5",
+        backgroundColor: background ? "transparent" : (darkMode ? "#15202b" : "#f0f2f5"),
       });
 
       if (isMobileView) {
@@ -549,6 +555,18 @@ export default function Home() {
                   })}
                 </div>
                 <button
+                  onClick={() => setShowThemeSelector(true)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border font-medium text-xs transition-all cursor-pointer ${
+                    darkMode
+                      ? "bg-[#1e2732] border-[#38444d] text-[#e7e9ea] hover:bg-[#273340]"
+                      : "bg-white border-[#e1e4e8] text-[#0f1419] hover:bg-[#f0f2f5]"
+                  }`}
+                  type="button"
+                >
+                  <PaletteIcon className="w-4 h-4 text-x-blue" />
+                  <span className="hidden sm:inline">Theme</span>
+                </button>
+                <button
                   onClick={handleDownload}
                   disabled={downloading}
                   className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer ${
@@ -583,16 +601,24 @@ export default function Home() {
                   ref={previewRef}
                   className={`${
                     deviceView === "mobile"
-                      ? ""
-                      : `rounded-2xl p-4 sm:p-6 border ${
-                          darkMode ? "bg-black border-[#38444d]" : "bg-[#f7f9f9] border-[#e1e4e8]"
+                      ? "p-4 sm:p-6"
+                      : `rounded-2xl p-6 sm:p-10 border transition-all duration-300 ${
+                          darkMode ? "border-[#38444d]" : "border-[#e1e4e8]"
                         }`
                   }`}
                   style={{
-                    backgroundColor: deviceView === "mobile" ? (darkMode ? "#000" : "#fff") : undefined,
+                    backgroundColor: !background ? (deviceView === "mobile" ? (darkMode ? "#000" : "#fff") : (darkMode ? "#1e2732" : "#f7f9f9")) : undefined,
+                    backgroundImage: background ? `url(${background})` : undefined,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
                   }}
                 >
-                  <TweetPreview tweet={tweet} darkMode={darkMode} device={deviceView} />
+                  <TweetPreview 
+                    tweet={tweet} 
+                    darkMode={darkMode} 
+                    device={deviceView} 
+                    background={background} 
+                  />
                 </div>
                 {deviceView === "mobile" && (
                   <div className={`h-6 flex items-center justify-center ${darkMode ? "bg-black" : "bg-white"}`}>
@@ -612,6 +638,15 @@ export default function Home() {
             </p>
           </div>
         </div>
+
+        {showThemeSelector && (
+          <ThemeSelector
+            darkMode={darkMode}
+            currentTheme={background}
+            onSelect={setBackground}
+            onClose={() => setShowThemeSelector(false)}
+          />
+        )}
       </main>
 
       {/* Footer */}
