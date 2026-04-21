@@ -73,12 +73,10 @@ export default function TweetPreview({
   tweet,
   darkMode,
   device = "desktop",
-  background = null,
 }: {
   tweet: TweetData;
   darkMode: boolean;
   device?: DeviceView;
-  background?: string | null;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);

@@ -1,6 +1,6 @@
 "use client";
 
-import { XIcon, PaletteIcon } from "./XIcons";
+import { PaletteIcon } from "./XIcons";
 
 interface ThemeSelectorProps {
   onSelect: (imageUrl: string | null) => void;
@@ -21,7 +21,7 @@ const THEME_IMAGES = [
   "Peak.webp",
   "cube.webp",
   "cubemono.webp",
-  "disaster.jpg",
+  "disaster.webp",
   "distortion.webp",
   "radiant.jpg",
   "vercel.jpg",
@@ -52,6 +52,8 @@ export default function ThemeSelector({ onSelect, onClose, currentTheme, darkMod
           <button 
             onClick={onClose}
             className={`p-2 rounded-full ${hoverBg} transition-colors ${textColor}`}
+            aria-label="Close"
+            type="button"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

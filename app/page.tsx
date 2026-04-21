@@ -17,8 +17,6 @@ import {
   PaletteIcon,
 } from "./components/XIcons";
 
-type DeviceView = "mobile" | "tablet" | "desktop";
-
 const FREE_CHARS = 280;
 const PREMIUM_CHARS = 25000;
 const STORAGE_KEY = "x-post-preview-draft";
@@ -160,41 +158,48 @@ export default function Home() {
   const handleDownload = useCallback(async () => {
     if (!previewRef.current) return;
     setDownloading(true);
+    let savedStyles: {
+      border: string;
+      borderRadius: string;
+      padding: string;
+      backgroundColor: string;
+      boxShadow: string;
+      backgroundImage: string;
+    } | null = null;
     try {
       const el = previewRef.current;
       const isMobileView = deviceView === "mobile";
+      const exportCardBg = isMobileView
+        ? (darkMode ? "#000000" : "#ffffff")
+        : (darkMode ? "#1e2732" : "#f7f9f9");
 
-      const saved = {
+      savedStyles = {
         border: el.style.border,
         borderRadius: el.style.borderRadius,
         padding: el.style.padding,
         backgroundColor: el.style.backgroundColor,
         boxShadow: el.style.boxShadow,
+        backgroundImage: el.style.backgroundImage,
       };
 
       if (isMobileView) {
         el.style.padding = "16px 12px";
         el.style.borderRadius = "20px";
-        if (!background) {
-            el.style.backgroundColor = darkMode ? "#000000" : "#ffffff";
-        }
         el.style.border = darkMode ? "1px solid #2f3336" : "1px solid #e1e4e8";
         el.style.boxShadow = "0 4px 24px rgba(0,0,0,0.12)";
       }
 
+      // html-to-image doesn't reliably include CSS URL backgrounds; export a solid fallback.
+      if (background) {
+        el.style.backgroundImage = "none";
+      }
+      el.style.backgroundColor = exportCardBg;
+
       const dataUrl = await toPng(el, {
         pixelRatio: 3,
         cacheBust: true,
-        backgroundColor: background ? "transparent" : (darkMode ? "#15202b" : "#f0f2f5"),
+        backgroundColor: darkMode ? "#15202b" : "#f0f2f5",
       });
-
-      if (isMobileView) {
-        el.style.border = saved.border;
-        el.style.borderRadius = saved.borderRadius;
-        el.style.padding = saved.padding;
-        el.style.backgroundColor = saved.backgroundColor;
-        el.style.boxShadow = saved.boxShadow;
-      }
 
       const link = document.createElement("a");
       link.download = `x-post-preview-${Date.now()}.png`;
@@ -203,9 +208,18 @@ export default function Home() {
     } catch {
       alert("Failed to export image. Try again.");
     } finally {
+      if (previewRef.current && savedStyles) {
+        const el = previewRef.current;
+        el.style.border = savedStyles.border;
+        el.style.borderRadius = savedStyles.borderRadius;
+        el.style.padding = savedStyles.padding;
+        el.style.backgroundColor = savedStyles.backgroundColor;
+        el.style.boxShadow = savedStyles.boxShadow;
+        el.style.backgroundImage = savedStyles.backgroundImage;
+      }
       setDownloading(false);
     }
-  }, [darkMode, deviceView]);
+  }, [background, darkMode, deviceView]);
 
   const pageBg = darkMode ? "bg-[#15202b]" : "bg-[#f0f2f5]";
   const panelBg = darkMode ? "bg-[#1e2732]" : "bg-white";
@@ -617,7 +631,6 @@ export default function Home() {
                     tweet={tweet} 
                     darkMode={darkMode} 
                     device={deviceView} 
-                    background={background} 
                   />
                 </div>
                 {deviceView === "mobile" && (
