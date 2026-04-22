@@ -647,11 +647,11 @@ export default function Home() {
 
             <p className={`mt-4 text-xs sm:text-sm ${secondaryLabel} text-center`}>
               {deviceView === "mobile"
-                ? "Mobile view (375px)"
+                ? "Mobile view (375px) · Themes are available on tablet & desktop views"
                 : deviceView === "tablet"
                   ? "Tablet view (540px)"
                   : "Desktop view (full width)"}
-              {" · "}Actual rendering on X may vary slightly.
+              {deviceView !== "mobile" && <>{" · "}Actual rendering on X may vary slightly.</>}
             </p>
           </div>
         </div>
