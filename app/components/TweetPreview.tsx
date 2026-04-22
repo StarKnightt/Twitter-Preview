@@ -93,10 +93,10 @@ export default function TweetPreview({
   return (
     <div
       className={`${bg} w-full transition-colors duration-200 ${
-        isMobile ? "" : `${borderColor} border rounded-2xl overflow-hidden`
+        isMobile ? "rounded-[12px]" : `${borderColor} border rounded-2xl overflow-hidden shadow-sm`
       }`}
     >
-      <div className={`${isMobile ? "px-4 pt-3 pb-0" : "px-4 pt-3 pb-1"}`}>
+      <div className={`${isMobile ? "px-4 pt-4 pb-0" : "px-4 pt-3 pb-1"}`}>
         <div className={`flex ${isMobile ? "gap-2.5" : "gap-3"}`}>
           {/* Avatar */}
           <div className="shrink-0">
