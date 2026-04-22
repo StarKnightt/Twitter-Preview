@@ -158,29 +158,17 @@ export default function Home() {
   const handleDownload = useCallback(async () => {
     if (!previewRef.current) return;
     setDownloading(true);
-    let savedStyles: {
-      border: string;
-      borderRadius: string;
-      padding: string;
-      backgroundColor: string;
-      boxShadow: string;
-      backgroundImage: string;
-    } | null = null;
+    const el = previewRef.current;
+    const saved = {
+      border: el.style.border,
+      borderRadius: el.style.borderRadius,
+      padding: el.style.padding,
+      backgroundColor: el.style.backgroundColor,
+      boxShadow: el.style.boxShadow,
+      backgroundImage: el.style.backgroundImage,
+    };
     try {
-      const el = previewRef.current;
       const isMobileView = deviceView === "mobile";
-      const exportCardBg = isMobileView
-        ? (darkMode ? "#000000" : "#ffffff")
-        : (darkMode ? "#1e2732" : "#f7f9f9");
-
-      savedStyles = {
-        border: el.style.border,
-        borderRadius: el.style.borderRadius,
-        padding: el.style.padding,
-        backgroundColor: el.style.backgroundColor,
-        boxShadow: el.style.boxShadow,
-        backgroundImage: el.style.backgroundImage,
-      };
 
       if (isMobileView) {
         el.style.padding = "16px 12px";
@@ -189,34 +177,47 @@ export default function Home() {
         el.style.boxShadow = "0 4px 24px rgba(0,0,0,0.12)";
       }
 
-      // html-to-image doesn't reliably include CSS URL backgrounds; export a solid fallback.
       if (background) {
-        el.style.backgroundImage = "none";
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext("2d")!.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL("image/png"));
+          };
+          img.onerror = reject;
+          img.src = background;
+        });
+        el.style.backgroundImage = `url(${dataUrl})`;
+      } else {
+        const fallback = isMobileView
+          ? (darkMode ? "#000000" : "#ffffff")
+          : (darkMode ? "#1e2732" : "#f7f9f9");
+        el.style.backgroundColor = fallback;
       }
-      el.style.backgroundColor = exportCardBg;
 
-      const dataUrl = await toPng(el, {
+      const png = await toPng(el, {
         pixelRatio: 3,
         cacheBust: true,
-        backgroundColor: darkMode ? "#15202b" : "#f0f2f5",
+        backgroundColor: background ? "transparent" : (darkMode ? "#15202b" : "#f0f2f5"),
       });
 
       const link = document.createElement("a");
       link.download = `x-post-preview-${Date.now()}.png`;
-      link.href = dataUrl;
+      link.href = png;
       link.click();
     } catch {
       alert("Failed to export image. Try again.");
     } finally {
-      if (previewRef.current && savedStyles) {
-        const el = previewRef.current;
-        el.style.border = savedStyles.border;
-        el.style.borderRadius = savedStyles.borderRadius;
-        el.style.padding = savedStyles.padding;
-        el.style.backgroundColor = savedStyles.backgroundColor;
-        el.style.boxShadow = savedStyles.boxShadow;
-        el.style.backgroundImage = savedStyles.backgroundImage;
-      }
+      el.style.border = saved.border;
+      el.style.borderRadius = saved.borderRadius;
+      el.style.padding = saved.padding;
+      el.style.backgroundColor = saved.backgroundColor;
+      el.style.boxShadow = saved.boxShadow;
+      el.style.backgroundImage = saved.backgroundImage;
       setDownloading(false);
     }
   }, [background, darkMode, deviceView]);
