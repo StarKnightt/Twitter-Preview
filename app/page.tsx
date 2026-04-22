@@ -11,6 +11,8 @@ import {
   GithubIcon,
   HeartIcon,
   DownloadIcon,
+  CopyIcon,
+  CheckIcon,
   MobileIcon,
   TabletIcon,
   DesktopIcon,
@@ -78,6 +80,7 @@ function getCharCountColor(count: number, limit: number): string {
 export default function Home() {
   const [darkMode, setDarkMode] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [tweet, setTweet] = useState<TweetData>(DEFAULT_TWEET);
   const [background, setBackground] = useState<string | null>(null);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
@@ -221,6 +224,75 @@ export default function Home() {
       el.style.boxShadow = saved.boxShadow;
       el.style.backgroundImage = saved.backgroundImage;
       setDownloading(false);
+    }
+  }, [background, darkMode, deviceView]);
+
+  const handleCopy = useCallback(async () => {
+    if (!previewRef.current) return;
+    setCopied(false);
+    const el = previewRef.current;
+    const saved = {
+      border: el.style.border,
+      borderRadius: el.style.borderRadius,
+      padding: el.style.padding,
+      backgroundColor: el.style.backgroundColor,
+      boxShadow: el.style.boxShadow,
+      backgroundImage: el.style.backgroundImage,
+    };
+    try {
+      const isMobileView = deviceView === "mobile";
+
+      if (isMobileView) {
+        el.style.padding = "16px 12px";
+        el.style.borderRadius = "20px";
+        el.style.border = darkMode ? "1px solid #2f3336" : "1px solid #e1e4e8";
+        el.style.boxShadow = "0 4px 24px rgba(0,0,0,0.12)";
+      }
+
+      const useThemeBg = background && !isMobileView;
+
+      if (useThemeBg) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const c = document.createElement("canvas");
+            c.width = img.naturalWidth;
+            c.height = img.naturalHeight;
+            c.getContext("2d")!.drawImage(img, 0, 0);
+            resolve(c.toDataURL("image/png"));
+          };
+          img.onerror = reject;
+          img.src = background;
+        });
+        el.style.backgroundImage = `url(${dataUrl})`;
+      } else {
+        const fallback = isMobileView
+          ? (darkMode ? "#000000" : "#ffffff")
+          : (darkMode ? "#1e2732" : "#f7f9f9");
+        el.style.backgroundColor = fallback;
+      }
+
+      const dataUrl = await toPng(el, {
+        pixelRatio: 3,
+        cacheBust: true,
+        backgroundColor: useThemeBg ? "transparent" : (darkMode ? "#15202b" : "#f0f2f5"),
+      });
+
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert("Failed to copy. Your browser may not support clipboard image copy.");
+    } finally {
+      el.style.border = saved.border;
+      el.style.borderRadius = saved.borderRadius;
+      el.style.padding = saved.padding;
+      el.style.backgroundColor = saved.backgroundColor;
+      el.style.boxShadow = saved.boxShadow;
+      el.style.backgroundImage = saved.backgroundImage;
     }
   }, [background, darkMode, deviceView]);
 
@@ -581,6 +653,18 @@ export default function Home() {
                 >
                   <PaletteIcon className="w-4 h-4 text-x-blue" />
                   <span className="hidden sm:inline">Theme</span>
+                </button>
+                <button
+                  onClick={handleCopy}
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer ${
+                    copied
+                      ? "bg-x-green text-white"
+                      : "hover:opacity-90 active:scale-95 bg-x-blue text-white"
+                  }`}
+                  type="button"
+                >
+                  {copied ? <CheckIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />}
+                  <span className="hidden sm:inline">{copied ? "Copied!" : "Copy"}</span>
                 </button>
                 <button
                   onClick={handleDownload}
