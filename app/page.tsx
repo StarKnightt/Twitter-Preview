@@ -177,7 +177,9 @@ export default function Home() {
         el.style.boxShadow = "0 4px 24px rgba(0,0,0,0.12)";
       }
 
-      if (background) {
+      const useThemeBg = background && !isMobileView;
+
+      if (useThemeBg) {
         const dataUrl = await new Promise<string>((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = "anonymous";
@@ -202,7 +204,7 @@ export default function Home() {
       const png = await toPng(el, {
         pixelRatio: 3,
         cacheBust: true,
-        backgroundColor: background ? "transparent" : (darkMode ? "#15202b" : "#f0f2f5"),
+        backgroundColor: useThemeBg ? "transparent" : (darkMode ? "#15202b" : "#f0f2f5"),
       });
 
       const link = document.createElement("a");
@@ -615,14 +617,16 @@ export default function Home() {
                   ref={previewRef}
                   className={`${
                     deviceView === "mobile"
-                      ? "p-4 sm:p-6"
+                      ? ""
                       : `rounded-2xl p-6 sm:p-10 border transition-all duration-300 ${
                           darkMode ? "border-[#38444d]" : "border-[#e1e4e8]"
                         }`
                   }`}
                   style={{
-                    backgroundColor: !background ? (deviceView === "mobile" ? (darkMode ? "#000" : "#fff") : (darkMode ? "#1e2732" : "#f7f9f9")) : undefined,
-                    backgroundImage: background ? `url(${background})` : undefined,
+                    backgroundColor: deviceView === "mobile"
+                      ? (darkMode ? "#000" : "#fff")
+                      : (!background ? (darkMode ? "#1e2732" : "#f7f9f9") : undefined),
+                    backgroundImage: deviceView !== "mobile" && background ? `url(${background})` : undefined,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
                   }}
