@@ -14,14 +14,20 @@ import {
 
 export type MediaType = "image" | "video";
 
+export interface MediaItem {
+  url: string;
+  type: MediaType;
+}
+
+export const MAX_MEDIA = 4;
+
 export interface TweetData {
   displayName: string;
   handle: string;
   avatarUrl: string | null;
   verified: boolean;
   text: string;
-  mediaUrl: string | null;
-  mediaType: MediaType;
+  media: MediaItem[];
   timestamp: Date;
   replies: number;
   retweets: number;
@@ -181,12 +187,8 @@ export default function TweetPreview({
             )}
 
             {/* Media */}
-            {tweet.mediaUrl && (
-              <MediaPreview
-                mediaUrl={tweet.mediaUrl}
-                mediaType={tweet.mediaType}
-                borderColor={borderColor}
-              />
+            {tweet.media.length > 0 && (
+              <MediaPreview media={tweet.media} borderColor={borderColor} />
             )}
 
             {/* Action bar */}
@@ -202,34 +204,84 @@ export default function TweetPreview({
   );
 }
 
+function MediaCell({ item, className = "" }: { item: MediaItem; className?: string }) {
+  if (item.type === "video") {
+    return (
+      <video
+        key={item.url}
+        src={item.url}
+        controls
+        controlsList="nodownload"
+        preload="metadata"
+        playsInline
+        className={`w-full h-full object-cover bg-black ${className}`}
+        style={{ display: "block" }}
+      />
+    );
+  }
+  return <img src={item.url} alt="" className={`w-full h-full object-cover ${className}`} />;
+}
+
 const MediaPreview = memo(function MediaPreview({
-  mediaUrl,
-  mediaType,
+  media,
   borderColor,
 }: {
-  mediaUrl: string;
-  mediaType: MediaType;
+  media: MediaItem[];
   borderColor: string;
 }) {
+  const count = media.length;
+
+  // Single item: natural sizing like X
+  if (count === 1) {
+    const item = media[0];
+    return (
+      <div className={`mt-3 rounded-2xl border ${borderColor} relative overflow-hidden`}>
+        {item.type === "video" ? (
+          <video
+            key={item.url}
+            src={item.url}
+            controls
+            controlsList="nodownload"
+            preload="metadata"
+            playsInline
+            className="w-full max-h-[510px] object-contain bg-black"
+            style={{ minHeight: "200px", display: "block" }}
+          />
+        ) : (
+          <img src={item.url} alt="" className="w-full max-h-[510px] object-cover block" />
+        )}
+      </div>
+    );
+  }
+
+  // Multi-item grids, matching X's layouts
   return (
     <div
-      className={`mt-3 rounded-2xl border ${borderColor} relative ${
-        mediaType === "video" ? "" : "overflow-hidden"
-      }`}
+      className={`mt-3 rounded-2xl border ${borderColor} overflow-hidden aspect-video`}
     >
-      {mediaType === "video" ? (
-        <video
-          key={mediaUrl}
-          src={mediaUrl}
-          controls
-          controlsList="nodownload"
-          preload="metadata"
-          playsInline
-          className="w-full max-h-[510px] object-contain bg-black rounded-2xl"
-          style={{ minHeight: "200px", display: "block" }}
-        />
-      ) : (
-        <img src={mediaUrl} alt="" className="w-full max-h-[510px] object-cover" />
+      {count === 2 && (
+        <div className="grid grid-cols-2 gap-0.5 h-full">
+          <MediaCell item={media[0]} />
+          <MediaCell item={media[1]} />
+        </div>
+      )}
+      {count === 3 && (
+        <div className="grid grid-cols-2 gap-0.5 h-full">
+          <MediaCell item={media[0]} />
+          <div className="grid grid-rows-2 gap-0.5 h-full min-h-0">
+            <div className="min-h-0"><MediaCell item={media[1]} /></div>
+            <div className="min-h-0"><MediaCell item={media[2]} /></div>
+          </div>
+        </div>
+      )}
+      {count >= 4 && (
+        <div className="grid grid-cols-2 grid-rows-2 gap-0.5 h-full">
+          {media.slice(0, 4).map((item, i) => (
+            <div key={i} className="min-h-0">
+              <MediaCell item={item} />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

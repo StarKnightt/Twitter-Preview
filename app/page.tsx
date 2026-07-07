@@ -2,7 +2,12 @@
 
 import { useState, useRef, useCallback, useEffect, type MutableRefObject } from "react";
 import { toPng } from "html-to-image";
-import TweetPreview, { type TweetData, type DeviceView } from "./components/TweetPreview";
+import TweetPreview, {
+  type TweetData,
+  type DeviceView,
+  type MediaItem,
+  MAX_MEDIA,
+} from "./components/TweetPreview";
 import ThemeSelector from "./components/ThemeSelector";
 import {
   XLogo,
@@ -43,8 +48,7 @@ const DEFAULT_TWEET: TweetData = {
   avatarUrl: null,
   verified: false,
   text: "",
-  mediaUrl: null,
-  mediaType: "image",
+  media: [],
   timestamp: new Date(),
   replies: 0,
   retweets: 0,
@@ -119,44 +123,108 @@ export default function Home() {
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
-  const handleImageUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>, field: "avatarUrl" | "mediaUrl") => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  const handleAvatarUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setTweet((prev) => ({ ...prev, avatarUrl: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }, []);
 
-      if (field === "mediaUrl") {
-        const isVideo = file.type.startsWith("video/");
-        const url = URL.createObjectURL(file);
-        setTweet((prev) => ({
-          ...prev,
-          mediaUrl: url,
-          mediaType: isVideo ? "video" : "image",
-        }));
-        return;
-      }
+  // Add media files following X's rules: up to 4 images, or a single video.
+  const addMediaFiles = useCallback((files: FileList | File[]) => {
+    const accepted = Array.from(files).filter(
+      (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
+    );
+    if (accepted.length === 0) return;
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        setTweet((prev) => ({ ...prev, [field]: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    },
-    []
-  );
-
-  const removeMedia = useCallback(() => {
     setTweet((prev) => {
-      if (prev.mediaUrl && prev.mediaType === "video") {
-        URL.revokeObjectURL(prev.mediaUrl);
+      const video = accepted.find((f) => f.type.startsWith("video/"));
+      if (video) {
+        prev.media.forEach((m) => URL.revokeObjectURL(m.url));
+        return {
+          ...prev,
+          media: [{ url: URL.createObjectURL(video), type: "video" as const }],
+        };
       }
-      return { ...prev, mediaUrl: null, mediaType: "image" };
+
+      // Images replace an existing video; otherwise they append up to the limit
+      const hasVideo = prev.media.some((m) => m.type === "video");
+      if (hasVideo) prev.media.forEach((m) => URL.revokeObjectURL(m.url));
+      const base = hasVideo ? [] : prev.media;
+
+      const room = MAX_MEDIA - base.length;
+      if (room <= 0) return prev;
+      const newItems: MediaItem[] = accepted.slice(0, room).map((f) => ({
+        url: URL.createObjectURL(f),
+        type: "image" as const,
+      }));
+      return { ...prev, media: [...base, ...newItems] };
     });
   }, []);
+
+  const handleMediaUpload = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files) addMediaFiles(e.target.files);
+      e.target.value = "";
+    },
+    [addMediaFiles]
+  );
+
+  const removeMediaAt = useCallback((index: number) => {
+    setTweet((prev) => {
+      const item = prev.media[index];
+      if (item) URL.revokeObjectURL(item.url);
+      return { ...prev, media: prev.media.filter((_, i) => i !== index) };
+    });
+  }, []);
+
+  const clearMedia = useCallback(() => {
+    setTweet((prev) => {
+      prev.media.forEach((m) => URL.revokeObjectURL(m.url));
+      return { ...prev, media: [] };
+    });
+  }, []);
+
+  // Drag & drop
+  const [dragActive, setDragActive] = useState(false);
+  const dragCounter = useRef(0);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (!e.dataTransfer.types.includes("Files")) return;
+    dragCounter.current += 1;
+    setDragActive(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current = Math.max(0, dragCounter.current - 1);
+    if (dragCounter.current === 0) setDragActive(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      dragCounter.current = 0;
+      setDragActive(false);
+      if (e.dataTransfer.files.length > 0) addMediaFiles(e.dataTransfer.files);
+    },
+    [addMediaFiles]
+  );
 
   const [premium, setPremium] = useState(false);
   const [deviceView, setDeviceView] = useState<DeviceView>("desktop");
   const charLimit = premium ? PREMIUM_CHARS : FREE_CHARS;
   const charCount = tweet.text.length;
+  const imageCount = tweet.media.filter((m) => m.type === "image").length;
 
   const handleDownload = useCallback(async () => {
     if (!previewRef.current) return;
@@ -290,6 +358,7 @@ export default function Home() {
               aria-label="Toggle dark mode"
               type="button"
             >
+
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow-sm ${
                   darkMode ? "translate-x-6" : "translate-x-0"
@@ -302,11 +371,30 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 sm:gap-8 items-start">
           {/* ───── Editor Panel ───── */}
+          
           <div
-            className={`${panelBg} rounded-2xl p-4 sm:p-6 shadow-sm border ${
-              darkMode ? "border-[#38444d]" : "border-[#e1e4e8]"
+            className={`${panelBg} relative rounded-2xl p-4 sm:p-6 shadow-sm border ${
+              dragActive
+                ? "border-x-blue border-dashed"
+                : darkMode
+                  ? "border-[#38444d]"
+                  : "border-[#e1e4e8]"
             } transition-colors duration-200 w-full`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
           >
+            {dragActive && (
+              <div className="absolute inset-0 z-10 rounded-2xl bg-x-blue/10 border-2 border-dashed border-x-blue flex items-center justify-center pointer-events-none">
+                <div className="flex flex-col items-center gap-2">
+                  <ImageIcon className="w-8 h-8 text-x-blue" />
+                  <span className={`text-sm font-medium ${labelColor}`}>
+                    Drop images or a video here
+                  </span>
+                </div>
+              </div>
+            )}
             <h2 className={`text-base font-bold ${labelColor} mb-4 sm:mb-5`}>
               Compose your post
             </h2>
@@ -337,7 +425,7 @@ export default function Home() {
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => handleImageUpload(e, "avatarUrl")}
+                onChange={handleAvatarUpload}
               />
 
               <div className="flex-1 grid grid-cols-2 gap-2 sm:gap-3">
@@ -430,13 +518,19 @@ export default function Home() {
                   <button
                     onClick={() => {
                       if (mediaInputRef.current) {
-                        mediaInputRef.current.accept = "image/*,video/mp4,video/webm,video/quicktime";
+                        mediaInputRef.current.accept = "image/*";
+                        mediaInputRef.current.multiple = true;
                         mediaInputRef.current.click();
                       }
                     }}
-                    className="p-1.5 rounded-full hover:bg-x-blue/10 text-x-blue transition-colors cursor-pointer"
+                    disabled={imageCount >= MAX_MEDIA}
+                    className={`p-1.5 rounded-full transition-colors ${
+                      imageCount >= MAX_MEDIA
+                        ? "text-x-blue/40 cursor-not-allowed"
+                        : "hover:bg-x-blue/10 text-x-blue cursor-pointer"
+                    }`}
                     type="button"
-                    title="Add image"
+                    title={imageCount >= MAX_MEDIA ? `Max ${MAX_MEDIA} images` : "Add images"}
                   >
                     <ImageIcon className="w-5 h-5" />
                   </button>
@@ -444,6 +538,7 @@ export default function Home() {
                     onClick={() => {
                       if (mediaInputRef.current) {
                         mediaInputRef.current.accept = "video/mp4,video/webm,video/quicktime";
+                        mediaInputRef.current.multiple = false;
                         mediaInputRef.current.click();
                       }
                     }}
@@ -457,16 +552,22 @@ export default function Home() {
                     ref={mediaInputRef}
                     type="file"
                     accept="image/*,video/mp4,video/webm,video/quicktime"
+                    multiple
                     className="hidden"
-                    onChange={(e) => handleImageUpload(e, "mediaUrl")}
+                    onChange={handleMediaUpload}
                   />
-                  {tweet.mediaUrl && (
+                  {imageCount > 0 && (
+                    <span className={`text-xs ${secondaryLabel} ml-1 tabular-nums`}>
+                      {imageCount}/{MAX_MEDIA}
+                    </span>
+                  )}
+                  {tweet.media.length > 0 && (
                     <button
-                      onClick={removeMedia}
+                      onClick={clearMedia}
                       className="text-xs text-red-400 hover:text-red-300 cursor-pointer ml-1"
                       type="button"
                     >
-                      Remove {tweet.mediaType}
+                      Remove all
                     </button>
                   )}
                 </div>
@@ -497,31 +598,53 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Media preview thumbnail */}
-            {tweet.mediaUrl && (
-              <div className="mb-5 relative rounded-xl overflow-hidden">
-                {tweet.mediaType === "video" ? (
-                  <video
-                    src={tweet.mediaUrl}
-                    className="w-full max-h-48 object-cover bg-black"
-                    muted
-                    playsInline
-                  />
-                ) : (
-                  <img src={tweet.mediaUrl} alt="" className="w-full max-h-48 object-cover" />
-                )}
-                <button
-                  onClick={removeMedia}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center text-sm hover:bg-black/90 transition-colors cursor-pointer"
-                  type="button"
-                >
-                  ×
-                </button>
-                {tweet.mediaType === "video" && (
-                  <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-white text-xs">
-                    Video
+            {/* Media preview thumbnails */}
+            {tweet.media.length > 0 && (
+              <div
+                className={`mb-5 grid gap-2 ${
+                  tweet.media.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                }`}
+              >
+                {tweet.media.map((item, index) => (
+                  <div
+                    key={item.url}
+                    className={`relative rounded-xl overflow-hidden ${
+                      tweet.media.length === 1 ? "" : "aspect-video"
+                    }`}
+                  >
+                    {item.type === "video" ? (
+                      <video
+                        src={item.url}
+                        className={`w-full object-cover bg-black ${
+                          tweet.media.length === 1 ? "max-h-48" : "h-full"
+                        }`}
+                        muted
+                        playsInline
+                      />
+                    ) : (
+                      <img
+                        src={item.url}
+                        alt=""
+                        className={`w-full object-cover ${
+                          tweet.media.length === 1 ? "max-h-48" : "h-full"
+                        }`}
+                      />
+                    )}
+                    <button
+                      onClick={() => removeMediaAt(index)}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center text-sm hover:bg-black/90 transition-colors cursor-pointer"
+                      type="button"
+                      aria-label="Remove media"
+                    >
+                      ×
+                    </button>
+                    {item.type === "video" && (
+                      <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-white text-xs">
+                        Video
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
             )}
 
